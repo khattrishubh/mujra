@@ -14,6 +14,7 @@ class WebRTCService {
 
   private defaultConfig: WebRTCConfig = {
     iceServers: [
+      // Google's public STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
@@ -22,6 +23,28 @@ class WebRTCService {
       // Additional STUN servers for better network compatibility
       { urls: 'stun:stun.services.mozilla.com' },
       { urls: 'stun:stun.stunprotocol.org:3478' },
+      // More STUN servers for better connectivity
+      { urls: 'stun:stun.voiparound.com' },
+      { urls: 'stun:stun.voipbuster.com' },
+      { urls: 'stun:stun.voipstunt.com' },
+      { urls: 'stun:stun.voxgratia.org' },
+      { urls: 'stun:stun.xten.com' },
+      // Free TURN servers (for NAT traversal)
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
   };
 
@@ -41,8 +64,16 @@ class WebRTCService {
     // Handle ICE candidates
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log('Generated ICE candidate:', event.candidate.type, event.candidate.protocol);
         socketService.sendIceCandidate(event.candidate);
+      } else {
+        console.log('ICE candidate gathering completed');
       }
+    };
+
+    // Handle ICE gathering state changes
+    this.peerConnection.onicegatheringstatechange = () => {
+      console.log('ICE gathering state:', this.peerConnection?.iceGatheringState);
     };
 
     // Handle remote stream
@@ -66,8 +97,25 @@ class WebRTCService {
 
     // Handle ICE connection state changes
     this.peerConnection.oniceconnectionstatechange = () => {
-      console.log('ICE connection state:', this.peerConnection?.iceConnectionState);
-      this.onIceConnectionStateChange?.(this.peerConnection?.iceConnectionState);
+      const state = this.peerConnection?.iceConnectionState;
+      console.log('ICE connection state:', state);
+      this.onIceConnectionStateChange?.(state);
+      
+      // Provide specific feedback for different states
+      switch (state) {
+        case 'checking':
+          console.log('Checking network connectivity...');
+          break;
+        case 'connected':
+          console.log('WebRTC connection established successfully!');
+          break;
+        case 'failed':
+          console.error('WebRTC connection failed. This might be due to network restrictions.');
+          break;
+        case 'disconnected':
+          console.log('WebRTC connection lost. Attempting to reconnect...');
+          break;
+      }
     };
 
     // Handle signaling state changes
@@ -331,6 +379,65 @@ class WebRTCService {
 
   hasOffer(): boolean {
     return this.hasReceivedOffer;
+  }
+
+  // Network connectivity check
+  async checkNetworkConnectivity(): Promise<{ stun: boolean; turn: boolean }> {
+    const results = { stun: false, turn: false };
+    
+    try {
+      // Test STUN connectivity
+      const testConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      
+      const testOffer = await testConnection.createOffer();
+      await testConnection.setLocalDescription(testOffer);
+      
+      // Wait for ICE gathering
+      await new Promise((resolve) => {
+        testConnection.onicegatheringstatechange = () => {
+          if (testConnection.iceGatheringState === 'complete') {
+            resolve(true);
+          }
+        };
+        // Timeout after 5 seconds
+        setTimeout(() => resolve(false), 5000);
+      });
+      
+      results.stun = testConnection.iceGatheringState === 'complete';
+      testConnection.close();
+      
+    } catch (error) {
+      console.error('STUN connectivity test failed:', error);
+    }
+    
+    console.log('Network connectivity test results:', results);
+    return results;
+  }
+
+  // Get connection statistics
+  async getConnectionStats(): Promise<any> {
+    if (!this.peerConnection) return null;
+    
+    try {
+      const stats = await this.peerConnection.getStats();
+      const statsArray: any[] = [];
+      
+      stats.forEach((report) => {
+        statsArray.push({
+          type: report.type,
+          id: report.id,
+          timestamp: report.timestamp,
+          ...Object.fromEntries(report)
+        });
+      });
+      
+      return statsArray;
+    } catch (error) {
+      console.error('Error getting connection stats:', error);
+      return null;
+    }
   }
 
   // Event callbacks
