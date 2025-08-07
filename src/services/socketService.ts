@@ -48,7 +48,13 @@ class SocketService {
         this.serverUrl = backendUrl;
       } else {
         // Fallback for production without environment variable
-        this.serverUrl = 'https://your-backend-url.railway.app'; // Replace with your actual backend URL
+        // This will work for Render deployment
+        const currentHost = window.location.hostname;
+        if (currentHost.includes('onrender.com')) {
+          this.serverUrl = `https://mujtv-backend.onrender.com`;
+        } else {
+          this.serverUrl = 'https://your-backend-url.railway.app'; // Replace with your actual backend URL
+        }
       }
     } else {
       // For localhost development

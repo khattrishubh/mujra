@@ -48,7 +48,9 @@ const io = new Server(server, {
       "http://localhost:5173",
       "http://localhost:5174",
       "https://*.netlify.app",
+      "https://*.onrender.com",
       "https://mujtv.netlify.app",
+      "https://mujtv-frontend.onrender.com",
       "https://muj.tv",
       "*" // Fallback for development
     ],
