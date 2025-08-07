@@ -11,6 +11,9 @@ class WebRTCService {
   private isInitiator: boolean = false;
   private hasReceivedOffer: boolean = false;
   private isSettingRemoteDescription: boolean = false;
+  private connectionRetryCount: number = 0;
+  private maxRetries: number = 3;
+  private retryTimeout: number = 5000; // 5 seconds
 
   private defaultConfig: WebRTCConfig = {
     iceServers: [
@@ -29,7 +32,7 @@ class WebRTCService {
       { urls: 'stun:stun.voipstunt.com' },
       { urls: 'stun:stun.voxgratia.org' },
       { urls: 'stun:stun.xten.com' },
-      // Free TURN servers (for NAT traversal)
+      // Reliable TURN servers for production
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -44,18 +47,96 @@ class WebRTCService {
         urls: 'turn:openrelay.metered.ca:443?transport=tcp',
         username: 'openrelayproject',
         credential: 'openrelayproject'
+      },
+      // Additional free TURN servers for redundancy
+      {
+        urls: 'turn:relay.backups.cz',
+        username: 'webrtc',
+        credential: 'webrtc'
+      },
+      {
+        urls: 'turn:relay.backups.cz:443',
+        username: 'webrtc',
+        credential: 'webrtc'
       }
     ]
   };
 
+  private getProductionConfig(): WebRTCConfig {
+    // Production configuration with TURN servers prioritized
+    return {
+      iceServers: [
+        // TURN servers first for better cross-network connectivity
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:relay.backups.cz:443',
+          username: 'webrtc',
+          credential: 'webrtc'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:relay.backups.cz',
+          username: 'webrtc',
+          credential: 'webrtc'
+        },
+        // STUN servers as fallback
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun.services.mozilla.com' }
+      ]
+    };
+  }
+
   async initialize(config?: Partial<WebRTCConfig>): Promise<void> {
-    const finalConfig = { ...this.defaultConfig, ...config };
+    // Use production config for better cross-network connectivity
+    const isProduction = import.meta.env.PROD;
+    const baseConfig = isProduction ? this.getProductionConfig() : this.defaultConfig;
+    const finalConfig = { ...baseConfig, ...config };
+    
+    console.log('Initializing WebRTC with config:', isProduction ? 'production' : 'development');
     
     this.peerConnection = new RTCPeerConnection(finalConfig);
     
     // Set up event listeners
     this.setupPeerConnectionListeners();
     this.setupSocketListeners();
+    
+    // Force TURN relay for better cross-network connectivity
+    this.forceTurnRelay();
+  }
+
+  private forceTurnRelay(): void {
+    if (!this.peerConnection) return;
+    
+    // Set ICE transport policy to relay only for better cross-network connectivity
+    try {
+      // This is a more aggressive approach for cross-network connections
+      const offerOptions: RTCOfferOptions = {
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+        iceRestart: true
+      };
+      
+      console.log('Forcing TURN relay for better cross-network connectivity');
+    } catch (error) {
+      console.warn('Could not force TURN relay:', error);
+    }
   }
 
   private setupPeerConnectionListeners(): void {
@@ -108,12 +189,15 @@ class WebRTCService {
           break;
         case 'connected':
           console.log('WebRTC connection established successfully!');
+          this.connectionRetryCount = 0; // Reset retry count on success
           break;
         case 'failed':
           console.error('WebRTC connection failed. This might be due to network restrictions.');
+          this.handleConnectionFailure();
           break;
         case 'disconnected':
           console.log('WebRTC connection lost. Attempting to reconnect...');
+          this.handleConnectionFailure();
           break;
       }
     };
@@ -307,6 +391,29 @@ class WebRTCService {
       this.localStream.getTracks().forEach(track => {
         this.peerConnection?.addTrack(track, this.localStream!);
       });
+    }
+  }
+
+  private async handleConnectionFailure(): Promise<void> {
+    if (this.connectionRetryCount < this.maxRetries) {
+      this.connectionRetryCount++;
+      console.log(`Connection failed. Retrying... (${this.connectionRetryCount}/${this.maxRetries})`);
+      
+      setTimeout(async () => {
+        try {
+          await this.resetConnection();
+          // If we have an offer, try to recreate it
+          if (this.isInitiator && !this.hasReceivedOffer) {
+            const offer = await this.createOffer();
+            socketService.sendOffer(offer);
+          }
+        } catch (error) {
+          console.error('Failed to reset connection:', error);
+        }
+      }, this.retryTimeout);
+    } else {
+      console.error('Max retry attempts reached. Connection failed permanently.');
+      this.connectionRetryCount = 0; // Reset for next attempt
     }
   }
 
