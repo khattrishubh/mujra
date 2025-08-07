@@ -1,7 +1,7 @@
 # Gender Feature Implementation
 
 ## Overview
-Added a gender selection option to the video chat application, allowing users to specify their gender when starting a chat session. This information is shared with chat partners and displayed in the interface.
+Added a gender selection option to the video chat application, allowing users to specify their gender when starting a chat session. This information is shared with chat partners and displayed in the interface. Users are matched randomly regardless of gender selection.
 
 ## Features Added
 
@@ -23,6 +23,7 @@ Added a gender selection option to the video chat application, allowing users to
 - **User Storage**: Gender is stored with user data in `activeUsers` Map
 - **Match Data**: Gender information included in match notifications
 - **Logging**: Enhanced logging to show gender information
+- **Matching Logic**: Users are matched randomly regardless of gender selection
 
 ### 4. UI Display Updates
 - **Status Bar**: Shows partner's gender in connection status
@@ -98,6 +99,19 @@ const matchData = {
 1. Partner's gender is displayed in status bar: "Connected with John (male) 🇺🇸"
 2. Chat header shows: "Connected with John 👨 male"
 3. Gender information is shared with chat partner
+
+## Matching Behavior
+
+### Current Implementation
+- **Random Matching**: Users are matched with the first available person regardless of gender
+- **No Gender Restrictions**: Male users can be matched with male users, female with female, etc.
+- **Gender Display Only**: Gender selection is used for display purposes only
+- **Equal Opportunity**: All users have equal chance of being matched with anyone
+
+### Previous Implementation (Removed)
+- Male users were only matched with female users
+- Female users were only matched with male users
+- Users selecting "other" could be matched with anyone
 
 ### Visual Indicators
 - **Male**: Blue color scheme with 👨 emoji

@@ -101,20 +101,11 @@ const getRandomCountry = () => {
 const findMatch = (userId) => {
   const user = waitingUsers.get(userId);
   if (!user) return null;
-  const userGender = user.gender?.toLowerCase();
 
   for (const [waitingUserId, userData] of waitingUsers) {
     if (waitingUserId === userId) continue;
-    const partnerGender = userData.gender?.toLowerCase();
-
-    if (
-      (userGender === 'male' && partnerGender === 'female') ||
-      (userGender === 'female' && partnerGender === 'male') ||
-      (userGender === 'other') ||
-      (partnerGender === 'other')
-    ) {
-      return waitingUserId;
-    }
+    // Match with anyone regardless of gender
+    return waitingUserId;
   }
   return null;
 };

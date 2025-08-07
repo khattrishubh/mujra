@@ -115,7 +115,7 @@ Fill in these details:
 2. Click "Start Chat"
 3. Test video chat functionality
 4. Test chat messaging
-5. Test gender-based matching
+5. Test random matching (users are matched regardless of gender)
 
 ---
 
