@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gender Feature Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .gender-button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .gender-button.male {
+            background: #3b82f6;
+            color: white;
+        }
+        .gender-button.female {
+            background: #ec4899;
+            color: white;
+        }
+        .gender-button.other {
+            background: #8b5cf6;
+            color: white;
+        }
+        .gender-button.selected {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .gender-button:hover {
+            transform: scale(1.02);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .submit-button {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .submit-button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        .result {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Gender Feature Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Gender Selection</h2>
+        <p>This test simulates the gender selection functionality added to the video chat application.</p>
+        
+        <div>
+            <label for="nameInput">Name:</label>
+            <input type="text" id="nameInput" placeholder="Enter your name...">
+        </div>
+        
+        <div>
+            <label>Gender:</label>
+            <div>
+                <button class="gender-button male" onclick="selectGender('male')">👨 Male</button>
+                <button class="gender-button female" onclick="selectGender('female')">👩 Female</button>
+                <button class="gender-button other" onclick="selectGender('other')">🧑 Other</button>
+            </div>
+        </div>
+        
+        <div>
+            <button class="submit-button" id="submitBtn" onclick="submitData()" disabled>Start Chat</button>
+            <button class="submit-button" onclick="resetForm()">Reset</button>
+        </div>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Feature Summary</h2>
+        <ul>
+            <li>✅ Gender selection with three options: Male, Female, Other</li>
+            <li>✅ Visual feedback with different colors for each gender</li>
+            <li>✅ Gender emoji indicators (👨👩🧑)</li>
+            <li>✅ Form validation requiring both name and gender</li>
+            <li>✅ Gender information displayed in chat interface</li>
+            <li>✅ Gender data sent to server and shared with chat partner</li>
+        </ul>
+    </div>
+
+    <script>
+        let selectedGender = '';
+        let userName = '';
+        
+        function selectGender(gender) {
+            selectedGender = gender;
+            
+            // Remove selected class from all buttons
+            document.querySelectorAll('.gender-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked button
+            event.target.classList.add('selected');
+            
+            checkFormValidity();
+        }
+        
+        function checkFormValidity() {
+            const nameInput = document.getElementById('nameInput');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            userName = nameInput.value.trim();
+            
+            if (userName && selectedGender) {
+                submitBtn.disabled = false;
+            } else {
+                submitBtn.disabled = true;
+            }
+        }
+        
+        function submitData() {
+            const resultDiv = document.getElementById('result');
+            const genderEmoji = getGenderEmoji(selectedGender);
+            
+            resultDiv.innerHTML = `
+                <h3>✅ Data Submitted Successfully!</h3>
+                <p><strong>Name:</strong> ${userName}</p>
+                <p><strong>Gender:</strong> ${genderEmoji} ${selectedGender}</p>
+                <p><em>This data would be sent to the server and shared with your chat partner.</em></p>
+            `;
+            resultDiv.style.display = 'block';
+        }
+        
+        function resetForm() {
+            document.getElementById('nameInput').value = '';
+            selectedGender = '';
+            userName = '';
+            
+            document.querySelectorAll('.gender-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('result').style.display = 'none';
+        }
+        
+        function getGenderEmoji(gender) {
+            switch (gender) {
+                case 'male':
+                    return '👨';
+                case 'female':
+                    return '👩';
+                case 'other':
+                    return '🧑';
+                default:
+                    return '';
+            }
+        }
+        
+        // Add event listener for name input
+        document.getElementById('nameInput').addEventListener('input', checkFormValidity);
+    </script>
+</body>
+</html>

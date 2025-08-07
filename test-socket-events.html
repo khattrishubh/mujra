@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket Events Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #333;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .connected { background: #4CAF50; }
+        .disconnected { background: #f44336; }
+        
+        .log {
+            background: #000;
+            border: 1px solid #555;
+            padding: 15px;
+            margin: 15px 0;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .stat-card {
+            background: #444;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Socket Events Test</h1>
+        
+        <div class="status" id="status">Connecting...</div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="onlineCount">-</div>
+                <div class="stat-label">Online Count</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="socketId">-</div>
+                <div class="stat-label">Socket ID</div>
+            </div>
+        </div>
+        
+        <div>
+            <button onclick="testConnection()">Test Connection</button>
+            <button onclick="disconnect()">Disconnect</button>
+            <button onclick="reconnect()">Reconnect</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let isConnected = false;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(text, type) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = text;
+            statusElement.className = `status ${type}`;
+        }
+
+        function updateOnlineCount(count) {
+            document.getElementById('onlineCount').textContent = count;
+            log(`Online count updated to: ${count}`);
+        }
+
+        function updateSocketId(id) {
+            document.getElementById('socketId').textContent = id || '-';
+        }
+
+        function testConnection() {
+            log('Testing connection...');
+            
+            if (!socket) {
+                                 // Use current host or fallback to localhost
+                 const host = window.location.hostname;
+                 
+                 let serverUrl;
+                 if (host === 'localhost' || host === '127.0.0.1') {
+                     serverUrl = 'http://localhost:3001';
+                 } else {
+                     // Always use port 3001 for backend, regardless of frontend port
+                     serverUrl = `${window.location.protocol}//${host}:3001`;
+                 }
+                
+                log(`Connecting to: ${serverUrl}`);
+                socket = io(serverUrl);
+                
+                socket.on('connect', () => {
+                    log('Connected to server');
+                    isConnected = true;
+                    updateStatus('Connected', 'connected');
+                    updateSocketId(socket.id);
+                });
+                
+                socket.on('disconnect', () => {
+                    log('Disconnected from server');
+                    isConnected = false;
+                    updateStatus('Disconnected', 'disconnected');
+                    updateSocketId('-');
+                });
+                
+                socket.on('onlineCount', (count) => {
+                    log(`Received onlineCount event: ${count}`);
+                    updateOnlineCount(count);
+                });
+                
+                socket.on('userJoined', (count) => {
+                    log(`Received userJoined event: ${count}`);
+                    updateOnlineCount(count);
+                });
+                
+                socket.on('userLeft', (count) => {
+                    log(`Received userLeft event: ${count}`);
+                    updateOnlineCount(count);
+                });
+                
+                socket.on('userData', (data) => {
+                    log(`Received userData: ${JSON.stringify(data)}`);
+                });
+                
+                socket.on('connect_error', (error) => {
+                    log(`Connection error: ${error.message}`);
+                    updateStatus('Connection failed', 'disconnected');
+                });
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                log('Manually disconnecting...');
+                socket.disconnect();
+            }
+        }
+
+        function reconnect() {
+            if (socket) {
+                log('Reconnecting...');
+                socket.connect();
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            log('Page loaded, starting test...');
+            testConnection();
+        };
+    </script>
+</body>
+</html> 

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d3748 50%, #4a5568 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(51, 51, 51, 0.8);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #4299e1, #9f7aea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .connected { background: rgba(34, 197, 94, 0.3); }
+        .disconnected { background: rgba(239, 68, 68, 0.3); }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4299e1;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #a0aec0;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Chat Connection Test</h1>
+        
+        <div class="status" id="connectionStatus">Checking connection...</div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="onlineCount">-</div>
+                <div class="stat-label">Online Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeUsers">-</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="waitingUsers">-</div>
+                <div class="stat-label">Waiting Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeRooms">-</div>
+                <div class="stat-label">Active Rooms</div>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="testConnection()">Test Connection</button>
+            <button onclick="startVideoChat()">Start Video Chat</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let isConnected = false;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(text, type) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.textContent = text;
+            statusElement.className = `status ${type}`;
+        }
+
+        function updateStats(stats) {
+            document.getElementById('onlineCount').textContent = stats.onlineCount || stats.activeUsers || 0;
+            document.getElementById('activeUsers').textContent = stats.activeUsers || 0;
+            document.getElementById('waitingUsers').textContent = stats.waitingUsers || 0;
+            document.getElementById('activeRooms').textContent = stats.activeRooms || 0;
+        }
+
+        async function testConnection() {
+            try {
+                log('Testing server connection...');
+                
+                                 // Use current host or fallback to localhost
+                 const host = window.location.hostname;
+                 
+                 let apiUrl;
+                 if (host === 'localhost' || host === '127.0.0.1') {
+                     apiUrl = 'http://localhost:3001/api/stats';
+                 } else {
+                     // Always use port 3001 for backend, regardless of frontend port
+                     apiUrl = `${window.location.protocol}//${host}:3001/api/stats`;
+                 }
+                
+                // Test HTTP endpoint
+                const response = await fetch(apiUrl);
+                const stats = await response.json();
+                
+                log(`Server responded: ${JSON.stringify(stats)}`);
+                updateStats(stats);
+                
+                                 // Test Socket.io connection
+                 if (!socket) {
+                     let serverUrl;
+                     if (host === 'localhost' || host === '127.0.0.1') {
+                         serverUrl = 'http://localhost:3001';
+                     } else {
+                         // Always use port 3001 for backend, regardless of frontend port
+                         serverUrl = `${window.location.protocol}//${host}:3001`;
+                     }
+                    
+                    log(`Connecting to Socket.io: ${serverUrl}`);
+                    socket = io(serverUrl);
+                    
+                    socket.on('connect', () => {
+                        log('Socket.io connected successfully');
+                        isConnected = true;
+                        updateStatus('Connected to server', 'connected');
+                    });
+                    
+                    socket.on('disconnect', () => {
+                        log('Socket.io disconnected');
+                        isConnected = false;
+                        updateStatus('Disconnected from server', 'disconnected');
+                    });
+                    
+                    socket.on('onlineCount', (count) => {
+                        log(`Received online count update: ${count}`);
+                        document.getElementById('onlineCount').textContent = count;
+                    });
+                    
+                    socket.on('userJoined', (count) => {
+                        log(`User joined, new count: ${count}`);
+                        document.getElementById('onlineCount').textContent = count;
+                    });
+                    
+                    socket.on('userLeft', (count) => {
+                        log(`User left, new count: ${count}`);
+                        document.getElementById('onlineCount').textContent = count;
+                    });
+                }
+                
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                updateStatus('Connection failed', 'disconnected');
+            }
+        }
+
+        function startVideoChat() {
+            log('Opening video chat application...');
+            window.open('http://localhost:5173', '_blank');
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            log('Page loaded, testing connection...');
+            testConnection();
+        };
+    </script>
+</body>
+</html> 

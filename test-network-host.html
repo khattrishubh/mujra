@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Host Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 MUJ.TV - Network Host Connectivity Test</h1>
+        
+        <div class="info">
+            <strong>Current Environment:</strong><br>
+            Host: <span id="current-host"></span><br>
+            Protocol: <span id="current-protocol"></span><br>
+            Port: <span id="current-port"></span><br>
+            Full URL: <span id="current-url"></span>
+        </div>
+
+        <div class="info">
+            <strong>Backend URL:</strong><br>
+            Socket URL: <span id="backend-url"></span>
+        </div>
+
+        <div>
+            <button onclick="testConnection()">Test Socket Connection</button>
+            <button onclick="testAPI()">Test API Connection</button>
+            <button onclick="testWebRTC()">Test WebRTC Configuration</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div id="status-container"></div>
+        
+        <h3>📋 Test Log:</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Display current environment info
+        document.getElementById('current-host').textContent = window.location.hostname;
+        document.getElementById('current-protocol').textContent = window.location.protocol;
+        document.getElementById('current-port').textContent = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+        document.getElementById('current-url').textContent = window.location.href;
+
+        // Calculate backend URL using the same logic as the app
+        const host = window.location.hostname;
+        const protocol = window.location.protocol;
+        let backendUrl;
+        
+        if (host === 'localhost' || host === '127.0.0.1') {
+            const isSecure = protocol === 'https:';
+            backendUrl = isSecure ? `https://localhost:3001` : `http://localhost:3001`;
+        } else {
+            backendUrl = `${protocol}//${host}:3001`;
+        }
+        
+        document.getElementById('backend-url').textContent = backendUrl;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            logElement.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function showStatus(message, type) {
+            const container = document.getElementById('status-container');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            container.appendChild(statusDiv);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 5000);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('status-container').innerHTML = '';
+        }
+
+        async function testConnection() {
+            log('🔌 Testing Socket.IO connection...', 'info');
+            
+            try {
+                const socket = io(backendUrl, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 5000,
+                    forceNew: true,
+                });
+
+                socket.on('connect', () => {
+                    log('✅ Socket.IO connection successful!', 'success');
+                    showStatus('Socket.IO Connection: SUCCESS', 'success');
+                    
+                    // Test basic events
+                    socket.emit('startSearch');
+                    log('📡 Sent startSearch event', 'info');
+                });
+
+                socket.on('connect_error', (error) => {
+                    log(`❌ Socket.IO connection failed: ${error.message}`, 'error');
+                    showStatus('Socket.IO Connection: FAILED', 'error');
+                });
+
+                socket.on('searchStarted', () => {
+                    log('✅ Received searchStarted event', 'success');
+                    socket.emit('stop');
+                    socket.disconnect();
+                });
+
+                socket.on('userData', (data) => {
+                    log(`✅ Received user data: ${JSON.stringify(data)}`, 'success');
+                });
+
+                socket.on('onlineCount', (count) => {
+                    log(`✅ Received online count: ${count}`, 'success');
+                });
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (socket.connected) {
+                        socket.disconnect();
+                        log('⏰ Connection test completed', 'info');
+                    }
+                }, 10000);
+
+            } catch (error) {
+                log(`❌ Socket.IO test failed: ${error.message}`, 'error');
+                showStatus('Socket.IO Connection: ERROR', 'error');
+            }
+        }
+
+        async function testAPI() {
+            log('🌐 Testing API connection...', 'info');
+            
+            const apiUrl = `${backendUrl}/api/health`;
+            
+            try {
+                const response = await fetch(apiUrl);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ API connection successful: ${JSON.stringify(data)}`, 'success');
+                    showStatus('API Connection: SUCCESS', 'success');
+                    
+                    // Test stats endpoint
+                    const statsResponse = await fetch(`${backendUrl}/api/stats`);
+                    if (statsResponse.ok) {
+                        const statsData = await statsResponse.json();
+                        log(`✅ Stats API successful: ${JSON.stringify(statsData)}`, 'success');
+                    }
+                } else {
+                    log(`❌ API connection failed: ${response.status} ${response.statusText}`, 'error');
+                    showStatus('API Connection: FAILED', 'error');
+                }
+            } catch (error) {
+                log(`❌ API test failed: ${error.message}`, 'error');
+                showStatus('API Connection: ERROR', 'error');
+            }
+        }
+
+        async function testWebRTC() {
+            log('📹 Testing WebRTC configuration...', 'info');
+            
+            try {
+                // Test ICE servers
+                const iceServers = [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:stun.services.mozilla.com' },
+                    { urls: 'stun:stun.stunprotocol.org:3478' },
+                ];
+
+                const peerConnection = new RTCPeerConnection({ iceServers });
+                
+                log('✅ RTCPeerConnection created successfully', 'success');
+                showStatus('WebRTC Configuration: SUCCESS', 'success');
+
+                // Test media access
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    log('✅ getUserMedia API available', 'success');
+                    
+                    // Check secure context
+                    if (window.isSecureContext) {
+                        log('✅ Secure context available for media access', 'success');
+                    } else {
+                        log('⚠️ Not in secure context - media access may be limited', 'warning');
+                        showStatus('WebRTC: Secure context required for full functionality', 'warning');
+                    }
+                } else {
+                    log('❌ getUserMedia API not available', 'error');
+                    showStatus('WebRTC: Media access not available', 'error');
+                }
+
+                // Test ICE gathering
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        log(`✅ ICE candidate gathered: ${event.candidate.candidate}`, 'success');
+                    } else {
+                        log('✅ ICE gathering completed', 'success');
+                    }
+                };
+
+                // Create a dummy offer to trigger ICE gathering
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                log('✅ WebRTC offer created successfully', 'success');
+
+                // Clean up
+                setTimeout(() => {
+                    peerConnection.close();
+                    log('🧹 WebRTC test completed and cleaned up', 'info');
+                }, 5000);
+
+            } catch (error) {
+                log(`❌ WebRTC test failed: ${error.message}`, 'error');
+                showStatus('WebRTC Configuration: ERROR', 'error');
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            log('🚀 Network Host Test initialized', 'info');
+            log(`🌐 Testing connectivity to: ${backendUrl}`, 'info');
+        });
+    </script>
+</body>
+</html>

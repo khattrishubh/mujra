@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Name Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 MUJ.TV - Name Debug Test</h1>
+        
+        <div>
+            <input type="text" id="nameInput" placeholder="Enter your name..." value="TestUser123" />
+            <button onclick="testName()">Test Name</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const host = window.location.hostname;
+        const protocol = window.location.protocol;
+        let backendUrl;
+        
+        if (host === 'localhost' || host === '127.0.0.1') {
+            const isSecure = protocol === 'https:';
+            backendUrl = isSecure ? 'https://localhost:3001' : 'http://localhost:3001';
+        } else {
+            backendUrl = `${protocol}//${host}:3001`;
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            logElement.innerHTML += `<div style="color: ${type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue'}">[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function testName() {
+            const userName = document.getElementById('nameInput').value.trim();
+            
+            if (!userName) {
+                log('Please enter a name', 'error');
+                return;
+            }
+
+            log(`🧪 Testing with name: "${userName}"`);
+            
+            const socket = io(backendUrl, {
+                transports: ['websocket', 'polling'],
+                timeout: 5000,
+            });
+
+            socket.on('connect', () => {
+                log('✅ Connected to server');
+                log(`📡 Sending startSearch with name: "${userName}"`);
+                socket.emit('startSearch', { name: userName });
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection failed: ${error.message}`, 'error');
+            });
+
+            socket.on('searchStarted', () => {
+                log('✅ Search started');
+            });
+
+            socket.on('matchFound', (data) => {
+                log('🎯 Match found!');
+                log(`📊 Full match data: ${JSON.stringify(data, null, 2)}`);
+                
+                // Check each user's name
+                data.users.forEach((user, index) => {
+                    log(`👤 User ${index + 1}: ID=${user.id}, Name="${user.name}", Country=${user.country.country}`);
+                });
+                
+                // Find partner
+                const partner = data.users.find(user => user.id !== socket.id);
+                if (partner) {
+                    log(`🤝 Partner: "${partner.name}" from ${partner.country.country}`);
+                }
+                
+                socket.emit('stop');
+                socket.disconnect();
+            });
+
+            socket.on('stopped', () => {
+                log('🛑 Test completed');
+            });
+
+            setTimeout(() => {
+                if (socket.connected) {
+                    log('⏰ Timeout - no match found');
+                    socket.disconnect();
+                }
+            }, 10000);
+        }
+
+        window.addEventListener('load', () => {
+            log('🚀 Name debug test ready');
+            log(`🌐 Backend: ${backendUrl}`);
+        });
+    </script>
+</body>
+</html> 

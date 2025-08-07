@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrollbar Fix Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow: hidden;
+        }
+        
+        .header {
+            height: 64px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+        
+        .main-content {
+            height: calc(100vh - 64px);
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .video-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-panel {
+            width: 320px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .message.sent {
+            background: #3b82f6;
+            margin-left: auto;
+        }
+        
+        .message.received {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .demo-content {
+            margin-bottom: 20px;
+        }
+        
+        .demo-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .scroll-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MUJ.TV Video Chat</h1>
+        </div>
+        
+        <div class="main-content">
+            <div class="video-area">
+                <div class="demo-content">
+                    <h2>Video Area (Scrollable)</h2>
+                    <p>This area can scroll if content is too long, but the page itself won't scroll.</p>
+                    
+                    <!-- Demo content to make the area scrollable -->
+                    <div class="demo-box">
+                        <h3>Demo Content 1</h3>
+                        <p>This is some demo content to make the video area scrollable. You can scroll this area independently.</p>
+                    </div>
+                    
+                    <div class="demo-box">
+                        <h3>Demo Content 2</h3>
+                        <p>More demo content to demonstrate the scrolling behavior.</p>
+                    </div>
+                    
+                    <div class="demo-box">
+                        <h3>Demo Content 3</h3>
+                        <p>Even more content to ensure the area is scrollable.</p>
+                    </div>
+                    
+                    <div class="demo-box">
+                        <h3>Demo Content 4</h3>
+                        <p>Additional content to test the scrolling functionality.</p>
+                    </div>
+                    
+                    <div class="demo-box">
+                        <h3>Demo Content 5</h3>
+                        <p>Final demo content to complete the scroll test.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <h3>Chat</h3>
+                    <p>Connected with John 👨 male</p>
+                </div>
+                
+                <div class="chat-messages">
+                    <div class="message received">
+                        <p>Hello! How are you today?</p>
+                        <small>2:30 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>Hi! I'm doing great, thanks for asking!</p>
+                        <small>2:31 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>That's wonderful to hear!</p>
+                        <small>2:32 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>How about you? What brings you here today?</p>
+                        <small>2:33 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>I'm just looking to meet new people and have interesting conversations.</p>
+                        <small>2:34 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>That's a great goal! I love meeting new people too.</p>
+                        <small>2:35 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>What do you like to talk about?</p>
+                        <small>2:36 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>I enjoy discussing technology, travel, and culture.</p>
+                        <small>2:37 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>That's fascinating! I love traveling too.</p>
+                        <small>2:38 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>Where have you traveled recently?</p>
+                        <small>2:39 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>I visited Japan last month. It was amazing!</p>
+                        <small>2:40 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>Japan is on my bucket list! What was your favorite part?</p>
+                        <small>2:41 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>The food was incredible, and the people were so friendly.</p>
+                        <small>2:42 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>I've heard the food is amazing there!</p>
+                        <small>2:43 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>Yes, especially the ramen and sushi!</p>
+                        <small>2:44 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>I'm getting hungry just thinking about it!</p>
+                        <small>2:45 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>Haha, me too! What about you? Any recent travels?</p>
+                        <small>2:46 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>I went to Italy last year. The art and history were incredible.</p>
+                        <small>2:47 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>Italy is beautiful! Which cities did you visit?</p>
+                        <small>2:48 PM</small>
+                    </div>
+                    
+                    <div class="message sent">
+                        <p>Rome, Florence, and Venice. Each was unique and amazing.</p>
+                        <small>2:49 PM</small>
+                    </div>
+                    
+                    <div class="message received">
+                        <p>That sounds like an incredible trip!</p>
+                        <small>2:50 PM</small>
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <input type="text" placeholder="Type a message..." />
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="scroll-indicator">
+        ✅ Fixed: Only chat area scrolls<br>
+        ✅ Page scroll disabled<br>
+        ✅ Video area scrolls independently
+    </div>
+
+    <script>
+        // Add scroll event listeners to demonstrate the fix
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoArea = document.querySelector('.video-area');
+            const chatMessages = document.querySelector('.chat-messages');
+            
+            videoArea.addEventListener('scroll', function() {
+                console.log('Video area scrolled');
+            });
+            
+            chatMessages.addEventListener('scroll', function() {
+                console.log('Chat messages scrolled');
+            });
+            
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Side-by-Side Cameras Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .video-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .video-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .video-box {
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+        
+        .video-label {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        
+        .video-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #1f2937, #374151);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .video-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 8px;
+            opacity: 0.6;
+        }
+        
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .feature-list {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .feature-list h3 {
+            margin-top: 0;
+            color: #60a5fa;
+        }
+        
+        .feature-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin-bottom: 8px;
+        }
+        
+        .demo-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .demo-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .demo-button.connected {
+            background: #10b981;
+            color: white;
+        }
+        
+        .demo-button.searching {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .demo-button.idle {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📹 Side-by-Side Camera Layout</h1>
+            <p>New camera UI with local and remote videos displayed side by side</p>
+        </div>
+        
+        <div class="demo-buttons">
+            <button class="demo-button idle" onclick="setStatus('idle')">Idle State</button>
+            <button class="demo-button searching" onclick="setStatus('searching')">Searching</button>
+            <button class="demo-button connected" onclick="setStatus('connected')">Connected</button>
+        </div>
+        
+        <div class="video-container">
+            <div class="video-grid">
+                <!-- Local Video -->
+                <div class="video-box">
+                    <div class="video-label">You</div>
+                    <div class="video-placeholder" id="localVideo">
+                        <svg class="video-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        <span>Your Camera</span>
+                    </div>
+                </div>
+                
+                <!-- Remote Video -->
+                <div class="video-box">
+                    <div class="video-label" id="remoteLabel">Waiting...</div>
+                    <div class="video-placeholder" id="remoteVideo">
+                        <svg class="video-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        <span>Partner's Camera</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="feature-list">
+            <h3>✨ New Side-by-Side Features</h3>
+            <ul>
+                <li><strong>Equal Layout:</strong> Both videos are the same size and positioned side by side</li>
+                <li><strong>Responsive Design:</strong> Stacks vertically on mobile devices</li>
+                <li><strong>Clear Labels:</strong> "You" and partner name clearly displayed</li>
+                <li><strong>Status Indicators:</strong> Different states shown in each video container</li>
+                <li><strong>Better Visibility:</strong> Both videos are equally prominent</li>
+                <li><strong>Professional Look:</strong> Clean, modern layout suitable for video calls</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="status-indicator" id="statusIndicator">
+        Status: Idle
+    </div>
+
+    <script>
+        let currentStatus = 'idle';
+        
+        function setStatus(status) {
+            currentStatus = status;
+            updateUI();
+        }
+        
+        function updateUI() {
+            const localVideo = document.getElementById('localVideo');
+            const remoteVideo = document.getElementById('remoteVideo');
+            const remoteLabel = document.getElementById('remoteLabel');
+            const statusIndicator = document.getElementById('statusIndicator');
+            
+            // Update status indicator
+            statusIndicator.textContent = `Status: ${currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}`;
+            
+            // Update remote video based on status
+            switch(currentStatus) {
+                case 'idle':
+                    remoteLabel.textContent = 'Waiting...';
+                    remoteVideo.innerHTML = `
+                        <svg class="video-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        <span>Partner's Camera</span>
+                    `;
+                    break;
+                    
+                case 'searching':
+                    remoteLabel.textContent = 'Searching...';
+                    remoteVideo.innerHTML = `
+                        <div style="animation: spin 1s linear infinite;">
+                            <svg class="video-icon" fill="#3b82f6" viewBox="0 0 24 24">
+                                <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16z"/>
+                                <path d="M12 6a6 6 0 100 12 6 6 0 000-12zm0 10a4 4 0 110-8 4 4 0 010 8z"/>
+                            </svg>
+                        </div>
+                        <span>Looking for someone...</span>
+                    `;
+                    break;
+                    
+                case 'connected':
+                    remoteLabel.textContent = 'John 👨 male';
+                    remoteVideo.innerHTML = `
+                        <div style="background: linear-gradient(45deg, #10b981, #059669); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                            <svg class="video-icon" fill="white" viewBox="0 0 24 24">
+                                <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            <span style="color: white;">Connected</span>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+        
+        // Add CSS animation for spinning
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

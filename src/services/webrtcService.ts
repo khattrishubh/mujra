@@ -1,0 +1,343 @@
+import socketService from './socketService';
+
+export interface WebRTCConfig {
+  iceServers: RTCIceServer[];
+}
+
+class WebRTCService {
+  private peerConnection: RTCPeerConnection | null = null;
+  private localStream: MediaStream | null = null;
+  private remoteStream: MediaStream | null = null;
+  private isInitiator: boolean = false;
+  private hasReceivedOffer: boolean = false;
+  private isSettingRemoteDescription: boolean = false;
+
+  private defaultConfig: WebRTCConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      // Additional STUN servers for better network compatibility
+      { urls: 'stun:stun.services.mozilla.com' },
+      { urls: 'stun:stun.stunprotocol.org:3478' },
+    ]
+  };
+
+  async initialize(config?: Partial<WebRTCConfig>): Promise<void> {
+    const finalConfig = { ...this.defaultConfig, ...config };
+    
+    this.peerConnection = new RTCPeerConnection(finalConfig);
+    
+    // Set up event listeners
+    this.setupPeerConnectionListeners();
+    this.setupSocketListeners();
+  }
+
+  private setupPeerConnectionListeners(): void {
+    if (!this.peerConnection) return;
+
+    // Handle ICE candidates
+    this.peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketService.sendIceCandidate(event.candidate);
+      }
+    };
+
+    // Handle remote stream
+    this.peerConnection.ontrack = (event) => {
+      console.log('Remote stream received:', event.streams[0]);
+      this.remoteStream = event.streams[0];
+      // Emit event for UI to handle
+      this.onRemoteStream?.(this.remoteStream);
+    };
+
+    // Handle connection state changes
+    this.peerConnection.onconnectionstatechange = () => {
+      console.log('Connection state:', this.peerConnection?.connectionState);
+      this.onConnectionStateChange?.(this.peerConnection?.connectionState);
+      
+      // If connection is established, ensure remote stream is displayed
+      if (this.peerConnection?.connectionState === 'connected') {
+        console.log('WebRTC connection established successfully');
+      }
+    };
+
+    // Handle ICE connection state changes
+    this.peerConnection.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', this.peerConnection?.iceConnectionState);
+      this.onIceConnectionStateChange?.(this.peerConnection?.iceConnectionState);
+    };
+
+    // Handle signaling state changes
+    this.peerConnection.onsignalingstatechange = () => {
+      console.log('Signaling state:', this.peerConnection?.signalingState);
+    };
+  }
+
+  private setupSocketListeners(): void {
+    // Handle incoming offers
+    socketService.onOffer(async (data) => {
+      if (!this.peerConnection) return;
+      
+      try {
+        console.log('Received offer from:', data.from);
+        this.hasReceivedOffer = true;
+        this.isInitiator = false;
+        
+        // Check if we're already setting a remote description
+        if (this.isSettingRemoteDescription) {
+          console.log('Already setting remote description, skipping...');
+          return;
+        }
+
+        this.isSettingRemoteDescription = true;
+        
+        // Set remote description
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        
+        // Create and set local answer
+        const answer = await this.peerConnection.createAnswer();
+        await this.peerConnection.setLocalDescription(answer);
+        
+        // Send answer
+        socketService.sendAnswer(answer);
+        
+        this.isSettingRemoteDescription = false;
+      } catch (error) {
+        console.error('Error handling offer:', error);
+        this.isSettingRemoteDescription = false;
+      }
+    });
+
+    // Handle incoming answers
+    socketService.onAnswer(async (data) => {
+      if (!this.peerConnection) return;
+      
+      try {
+        console.log('Received answer from:', data.from);
+        
+        // Check if we're already setting a remote description
+        if (this.isSettingRemoteDescription) {
+          console.log('Already setting remote description, skipping...');
+          return;
+        }
+
+        this.isSettingRemoteDescription = true;
+        
+        // Only set remote description if we're in the right state
+        if (this.peerConnection.signalingState === 'have-local-offer') {
+          await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        } else {
+          console.log('Wrong signaling state for answer:', this.peerConnection.signalingState);
+        }
+        
+        this.isSettingRemoteDescription = false;
+      } catch (error) {
+        console.error('Error handling answer:', error);
+        this.isSettingRemoteDescription = false;
+      }
+    });
+
+    // Handle incoming ICE candidates
+    socketService.onIceCandidate(async (data) => {
+      if (!this.peerConnection) return;
+      
+      try {
+        // Only add ICE candidate if connection is not closed
+        if (this.peerConnection.connectionState !== 'closed') {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+      } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+      }
+    });
+  }
+
+  async startLocalStream(constraints: MediaStreamConstraints = {
+    video: true,
+    audio: true
+  }): Promise<MediaStream> {
+    try {
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia is not supported in this browser or context. Please use HTTPS or localhost.');
+      }
+
+      // Check for secure context (required for getUserMedia except on localhost)
+      if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        throw new Error('getUserMedia requires a secure context (HTTPS). Please access the site over HTTPS.');
+      }
+
+      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // Add local stream to peer connection
+      if (this.peerConnection && this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          this.peerConnection?.addTrack(track, this.localStream!);
+        });
+      }
+      
+      return this.localStream;
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
+      
+      // Provide more helpful error messages
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+            throw new Error('Camera/microphone access denied. Please allow permissions and try again.');
+          case 'NotFoundError':
+            throw new Error('No camera or microphone found. Please connect media devices and try again.');
+          case 'NotReadableError':
+            throw new Error('Camera or microphone is already in use by another application.');
+          case 'OverconstrainedError':
+            throw new Error('The requested media constraints cannot be satisfied by available devices.');
+          default:
+            throw new Error(`Media access error: ${error.message}`);
+        }
+      }
+      
+      throw error;
+    }
+  }
+
+  async createOffer(): Promise<RTCSessionDescriptionInit> {
+    if (!this.peerConnection) {
+      throw new Error('Peer connection not initialized');
+    }
+
+    try {
+      console.log('Creating offer...');
+      this.isInitiator = true;
+      
+      // Make sure we're in a stable state
+      if (this.peerConnection.signalingState !== 'stable') {
+        console.log('Signaling state not stable, resetting connection...');
+        await this.resetConnection();
+      }
+      
+      const offer = await this.peerConnection.createOffer();
+      await this.peerConnection.setLocalDescription(offer);
+      socketService.sendOffer(offer);
+      return offer;
+    } catch (error) {
+      console.error('Error creating offer:', error);
+      throw error;
+    }
+  }
+
+  async createAnswer(): Promise<RTCSessionDescriptionInit> {
+    if (!this.peerConnection) {
+      throw new Error('Peer connection not initialized');
+    }
+
+    try {
+      console.log('Creating answer...');
+      this.isInitiator = false;
+      const answer = await this.peerConnection.createAnswer();
+      await this.peerConnection.setLocalDescription(answer);
+      socketService.sendAnswer(answer);
+      return answer;
+    } catch (error) {
+      console.error('Error creating answer:', error);
+      throw error;
+    }
+  }
+
+  private async resetConnection(): Promise<void> {
+    if (this.peerConnection) {
+      this.peerConnection.close();
+    }
+    
+    // Reinitialize the connection
+    await this.initialize();
+    
+    // Re-add local stream if available
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => {
+        this.peerConnection?.addTrack(track, this.localStream!);
+      });
+    }
+  }
+
+  // Media control methods
+  toggleVideo(enabled: boolean): void {
+    if (this.localStream) {
+      const videoTrack = this.localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = enabled;
+      }
+    }
+  }
+
+  toggleAudio(enabled: boolean): void {
+    if (this.localStream) {
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = enabled;
+      }
+    }
+  }
+
+  toggleRemoteAudio(enabled: boolean): void {
+    if (this.remoteStream) {
+      const audioTrack = this.remoteStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = enabled;
+      }
+    }
+  }
+
+  // Cleanup
+  cleanup(): void {
+    console.log('Cleaning up WebRTC connection...');
+    
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream = null;
+    }
+
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
+
+    this.remoteStream = null;
+    this.isInitiator = false;
+    this.hasReceivedOffer = false;
+    this.isSettingRemoteDescription = false;
+    
+    console.log('WebRTC cleanup completed');
+  }
+
+  // Getters
+  getLocalStream(): MediaStream | null {
+    return this.localStream;
+  }
+
+  getRemoteStream(): MediaStream | null {
+    return this.remoteStream;
+  }
+
+  getPeerConnection(): RTCPeerConnection | null {
+    return this.peerConnection;
+  }
+
+  isInitiatorMode(): boolean {
+    return this.isInitiator;
+  }
+
+  hasOffer(): boolean {
+    return this.hasReceivedOffer;
+  }
+
+  // Event callbacks
+  onRemoteStream?: (stream: MediaStream) => void;
+  onConnectionStateChange?: (state: RTCConnectionState | undefined) => void;
+  onIceConnectionStateChange?: (state: RTCIceConnectionState | undefined) => void;
+}
+
+export const webrtcService = new WebRTCService();
+export default webrtcService; 
